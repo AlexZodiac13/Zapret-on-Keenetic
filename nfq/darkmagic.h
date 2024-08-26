@@ -1,24 +1,29 @@
 #pragma once
 
+#include "checksum.h"
+#include "packet_queue.h"
+#include "pools.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/param.h>
 #include <netinet/in.h>
+
+#define __FAVOR_BSD
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <sys/socket.h>
-#include <sys/param.h>
 
-#include "checksum.h"
+#ifndef IPV6_FREEBIND
+#define IPV6_FREEBIND           78
+#endif
 
 #ifdef __CYGWIN__
 #include "windivert/windivert.h"
 #endif
-
-#include "packet_queue.h"
-#include "pools.h"
 
 #ifndef IPPROTO_DIVERT
 #define IPPROTO_DIVERT 258
@@ -182,6 +187,11 @@ void print_ip(const struct ip *ip);
 void print_ip6hdr(const struct ip6_hdr *ip6hdr, uint8_t proto);
 void print_tcphdr(const struct tcphdr *tcphdr);
 void print_udphdr(const struct udphdr *udphdr);
+void str_ip(char *s, size_t s_len, const struct ip *ip);
+void str_ip6hdr(char *s, size_t s_len, const struct ip6_hdr *ip6hdr, uint8_t proto);
+void str_srcdst_ip6(char *s, size_t s_len, const void *saddr,const void *daddr);
+void str_tcphdr(char *s, size_t s_len, const struct tcphdr *tcphdr);
+void str_udphdr(char *s, size_t s_len, const struct udphdr *udphdr);
 
 bool proto_check_ipv4(const uint8_t *data, size_t len);
 void proto_skip_ipv4(uint8_t **data, size_t *len);

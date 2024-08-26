@@ -699,7 +699,7 @@ static void str_srcdst_ip(char *s, size_t s_len, const void *saddr,const void *d
 	inet_ntop(AF_INET, daddr, d_ip, sizeof(d_ip));
 	snprintf(s,s_len,"%s => %s",s_ip,d_ip);
 }
-static void str_ip(char *s, size_t s_len, const struct ip *ip)
+void str_ip(char *s, size_t s_len, const struct ip *ip)
 {
 	char ss[35],s_proto[16];
 	str_srcdst_ip(ss,sizeof(ss),&ip->ip_src,&ip->ip_dst);
@@ -712,7 +712,7 @@ void print_ip(const struct ip *ip)
 	str_ip(s,sizeof(s),ip);
 	printf("%s",s);
 }
-static void str_srcdst_ip6(char *s, size_t s_len, const void *saddr,const void *daddr)
+void str_srcdst_ip6(char *s, size_t s_len, const void *saddr,const void *daddr)
 {
 	char s_ip[40],d_ip[40];
 	*s_ip=*d_ip=0;
@@ -720,7 +720,7 @@ static void str_srcdst_ip6(char *s, size_t s_len, const void *saddr,const void *
 	inet_ntop(AF_INET6, daddr, d_ip, sizeof(d_ip));
 	snprintf(s,s_len,"%s => %s",s_ip,d_ip);
 }
-static void str_ip6hdr(char *s, size_t s_len, const struct ip6_hdr *ip6hdr, uint8_t proto)
+void str_ip6hdr(char *s, size_t s_len, const struct ip6_hdr *ip6hdr, uint8_t proto)
 {
 	char ss[83],s_proto[16];
 	str_srcdst_ip6(ss,sizeof(ss),&ip6hdr->ip6_src,&ip6hdr->ip6_dst);
@@ -733,7 +733,7 @@ void print_ip6hdr(const struct ip6_hdr *ip6hdr, uint8_t proto)
 	str_ip6hdr(s,sizeof(s),ip6hdr,proto);
 	printf("%s",s);
 }
-static void str_tcphdr(char *s, size_t s_len, const struct tcphdr *tcphdr)
+void str_tcphdr(char *s, size_t s_len, const struct tcphdr *tcphdr)
 {
 	char flags[7],*f=flags;
 	if (tcphdr->th_flags & TH_SYN) *f++='S';
@@ -751,7 +751,7 @@ void print_tcphdr(const struct tcphdr *tcphdr)
 	str_tcphdr(s,sizeof(s),tcphdr);
 	printf("%s",s);
 }
-static void str_udphdr(char *s, size_t s_len, const struct udphdr *udphdr)
+void str_udphdr(char *s, size_t s_len, const struct udphdr *udphdr)
 {
 	snprintf(s,s_len,"sport=%u dport=%u",htons(udphdr->uh_sport),htons(udphdr->uh_dport));
 }
@@ -937,11 +937,11 @@ void tcp_rewrite_wscale(struct tcphdr *tcp, uint8_t scale_factor)
 			scale_factor_old=scale[2];
 			// do not allow increasing scale factor
 			if (scale_factor>=scale_factor_old)
-				DLOG("Scale factor %u unchanged\n", scale_factor_old)
+				DLOG("Scale factor %u unchanged\n", scale_factor_old);
 			else
 			{
 				scale[2]=scale_factor;
-				DLOG("Scale factor change %u => %u\n", scale_factor_old, scale_factor)
+				DLOG("Scale factor change %u => %u\n", scale_factor_old, scale_factor);
 			}
 		}
 	}
@@ -953,7 +953,7 @@ void tcp_rewrite_winsize(struct tcphdr *tcp, uint16_t winsize, uint8_t scale_fac
 
 	winsize_old = htons(tcp->th_win); // << scale_factor;
 	tcp->th_win = htons(winsize);
-	DLOG("Window size change %u => %u\n", winsize_old, winsize)
+	DLOG("Window size change %u => %u\n", winsize_old, winsize);
 
 	tcp_rewrite_wscale(tcp, scale_factor);
 }
@@ -1321,7 +1321,6 @@ static bool logical_net_filter_match_rate_limited(void)
 static HANDLE windivert_init_filter(const char *filter, UINT64 flags)
 {
 	LPSTR errormessage = NULL;
-	DWORD errorcode = 0;
 	HANDLE h, hMutex;
 	const char *mutex_name = "Global\\winws_windivert_mutex";
 
@@ -1343,10 +1342,10 @@ static HANDLE windivert_init_filter(const char *filter, UINT64 flags)
 
 	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, w_win32_error, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), (LPSTR)&errormessage, 0, NULL);
-	fprintf(stderr, "windivert: error opening filter: %s", errormessage);
+	DLOG_ERR("windivert: error opening filter: %s", errormessage);
 	LocalFree(errormessage);
 	if (w_win32_error == ERROR_INVALID_IMAGE_HASH)
-		fprintf(stderr,"windivert: try to disable secure boot and install OS patches\n");
+		DLOG_ERR("windivert: try to disable secure boot and install OS patches\n");
 
 	return NULL;
 }
@@ -1593,14 +1592,14 @@ static bool set_socket_fwmark(int sock, uint32_t fwmark)
 #ifdef SO_USER_COOKIE
 	if (setsockopt(sock, SOL_SOCKET, SO_USER_COOKIE, &fwmark, sizeof(fwmark)) == -1)
 	{
-		perror("rawsend: setsockopt(SO_USER_COOKIE)");
+		DLOG_PERROR("rawsend: setsockopt(SO_USER_COOKIE)");
 		return false;
 	}
 #endif
 #elif defined(__linux__)
 	if (setsockopt(sock, SOL_SOCKET, SO_MARK, &fwmark, sizeof(fwmark)) == -1)
 	{
-		perror("rawsend: setsockopt(SO_MARK)");
+		DLOG_PERROR("rawsend: setsockopt(SO_MARK)");
 		return false;
 	}
 
@@ -1610,7 +1609,6 @@ static bool set_socket_fwmark(int sock, uint32_t fwmark)
 
 static int rawsend_socket(sa_family_t family)
 {
-	int yes=1;
 	int *sock = rawsend_family_sock(family);
 	if (!sock) return -1;
 	
@@ -1623,7 +1621,7 @@ static int rawsend_socket(sa_family_t family)
 		// IPPROTO_RAW with ipv6 in FreeBSD always returns EACCES on sendto.
 		// must use IPPROTO_TCP for ipv6. IPPROTO_RAW works for ipv4
 		// divert sockets are always v4 but accept both v4 and v6
-		*sock = (family==AF_INET) ? rawsend_socket_raw(family, IPPROTO_TCP) : rawsend_socket_divert(AF_INET);
+		*sock = rawsend_socket_divert(AF_INET);
 #elif defined(__OpenBSD__) || defined (__APPLE__)
 		// OpenBSD does not allow sending TCP frames through raw sockets
 		// I dont know about macos. They have dropped ipfw in recent versions and their PF does not support divert-packet
@@ -1633,38 +1631,28 @@ static int rawsend_socket(sa_family_t family)
 #endif
 		if (*sock==-1)
 		{
-			perror("rawsend: socket()");
+			DLOG_PERROR("rawsend: socket()");
 			return -1;
 		}
-#ifdef BSD
-#if !(defined(__OpenBSD__) || defined (__APPLE__))
-		// HDRINCL not supported for ipv6 in any BSD
-		if (family==AF_INET && setsockopt(*sock,IPPROTO_IP,IP_HDRINCL,&yes,sizeof(yes)) == -1)
-		{
-			perror("rawsend: setsockopt(IP_HDRINCL)");
-			goto exiterr;
-		}
-#endif
-#endif
 #ifdef __linux__
 		if (setsockopt(*sock, SOL_SOCKET, SO_PRIORITY, &pri, sizeof(pri)) == -1)
 		{
-			perror("rawsend: setsockopt(SO_PRIORITY)");
+			DLOG_PERROR("rawsend: setsockopt(SO_PRIORITY)");
 			goto exiterr;
 		}
 		if (family==AF_INET && setsockopt(*sock, IPPROTO_IP, IP_NODEFRAG, &yes, sizeof(yes)) == -1)
 		{
-			perror("rawsend: setsockopt(IP_NODEFRAG)");
+			DLOG_PERROR("rawsend: setsockopt(IP_NODEFRAG)");
 			goto exiterr;
 		}
 		if (family==AF_INET && setsockopt(*sock, IPPROTO_IP, IP_FREEBIND, &yes, sizeof(yes)) == -1)
 		{
-			perror("rawsend: setsockopt(IP_FREEBIND)");
+			DLOG_PERROR("rawsend: setsockopt(IP_FREEBIND)");
 			goto exiterr;
 		}
 		if (family==AF_INET6 && setsockopt(*sock, SOL_IPV6, IPV6_FREEBIND, &yes, sizeof(yes)) == -1)
 		{
-			//perror("rawsend: setsockopt(IPV6_FREEBIND)");
+			//DLOG_PERROR("rawsend: setsockopt(IPV6_FREEBIND)");
 			// dont error because it's supported only from kernel 4.15
 		}
 #endif
@@ -1693,51 +1681,19 @@ bool rawsend(const struct sockaddr* dst,uint32_t fwmark,const char *ifout,const 
 	memcpy(&dst2,dst,salen);
 	if (dst->sa_family==AF_INET6)
 		((struct sockaddr_in6 *)&dst2)->sin6_port = 0; // or will be EINVAL in linux
-#ifdef BSD
-/*
-		// this works only for local connections and not working for transit : cant spoof source addr
-		if (len>=sizeof(struct ip6_hdr))
-		{
-			// BSD ipv6 raw socks are limited. cannot pass the whole packet with ip6 header.
-			struct sockaddr_storage sa_src;
-			int v;
-			extract_endpoints(NULL,(struct ip6_hdr *)data,NULL,NULL, &sa_src, NULL);
-			v = ((struct ip6_hdr *)data)->ip6_ctlun.ip6_un1.ip6_un1_hlim;
-			if (setsockopt(sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &v, sizeof(v)) == -1)
-				perror("rawsend: setsockopt(IPV6_HOPLIMIT)");
-			// the only way to control source address is bind. make it equal to ip6_hdr
-			if (bind(sock, (struct sockaddr*)&sa_src, salen) < 0)
-				perror("rawsend bind: ");
-			//printf("BSD v6 RAWSEND "); print_sockaddr((struct sockaddr*)&sa_src); printf(" -> "); print_sockaddr((struct sockaddr*)&dst2); printf("\n");
-			proto_skip_ipv6((uint8_t**)&data, &len, NULL);
-		}
-*/
 
-#if !(defined(__OpenBSD__) || defined (__APPLE__))
-	// OpenBSD doesnt allow rawsending tcp frames. always use divert socket
-	if (dst->sa_family==AF_INET6)
-#endif
+#if defined(BSD)
+	bytes = rawsend_sendto_divert(dst->sa_family,sock,data,len);
+	if (bytes==-1)
 	{
-		ssize_t bytes = rawsend_sendto_divert(dst->sa_family,sock,data,len);
-		if (bytes==-1)
-		{
-			perror("rawsend: sendto_divert");
-			return false;
-		}
-		return true;
+		DLOG_PERROR("rawsend: sendto_divert");
+		return false;
 	}
-#endif
+	return true;
 
-#if defined(__FreeBSD__) && __FreeBSD__<=10
-	// old FreeBSD requires some fields in host byte order
-	if (dst->sa_family==AF_INET && len>=sizeof(struct ip))
-	{
-		((struct ip*)data)->ip_len = htons(((struct ip*)data)->ip_len);
-		((struct ip*)data)->ip_off = htons(((struct ip*)data)->ip_off);
-	}
-#endif
+#else
 
-#if defined(__linux__)
+#ifdef __linux__
 	struct sockaddr_storage sa_src;
 	switch(dst->sa_family)
 	{
@@ -1755,19 +1711,19 @@ bool rawsend(const struct sockaddr* dst,uint32_t fwmark,const char *ifout,const 
 	//printf("family %u dev %s bind : ",  dst->sa_family, ifout); print_sockaddr((struct sockaddr *)&sa_src); printf("\n");
 	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, ifout, ifout ? strlen(ifout)+1 : 0) == -1)
 	{
-		perror("rawsend: setsockopt(SO_BINDTODEVICE)");
+		DLOG_PERROR("rawsend: setsockopt(SO_BINDTODEVICE)");
 		return false;
 	}
 	if (bind(sock, (const struct sockaddr*)&sa_src, dst->sa_family==AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)))
 	{
-		perror("rawsend: bind (ignoring)");
+		DLOG_PERROR("rawsend: bind (ignoring)");
 		// do not fail. this can happen regardless of IP_FREEBIND
 		// rebind to any address
 		memset(&sa_src,0,sizeof(sa_src));
 		sa_src.ss_family = dst->sa_family;
 		if (bind(sock, (const struct sockaddr*)&sa_src, dst->sa_family==AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)))
 		{
-			perror("rawsend: bind to any");
+			DLOG_PERROR("rawsend: bind to any");
 			return false;
 		}
 	}
@@ -1776,20 +1732,13 @@ nofix:
 
 	// normal raw socket sendto
 	bytes = sendto(sock, data, len, 0, (struct sockaddr*)&dst2, salen);
-#if defined(__FreeBSD) && __FreeBSD__<=10
-	// restore byte order
-	if (dst->sa_family==AF_INET && len>=sizeof(struct ip))
-	{
-		((struct ip*)data)->ip_len = htons(((struct ip*)data)->ip_len);
-		((struct ip*)data)->ip_off = htons(((struct ip*)data)->ip_off);
-	}
-#endif
 	if (bytes==-1)
 	{
-		perror("rawsend: sendto");
+		DLOG_PERROR("rawsend: sendto");
 		return false;
 	}
 	return true;
+#endif
 }
 
 #endif // not CYGWIN

@@ -189,24 +189,24 @@ void dbgprint_socket_buffers(int fd)
 		socklen_t sz;
 		sz = sizeof(int);
 		if (!getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &v, &sz))
-			DLOG("fd=%d SO_RCVBUF=%d\n", fd, v)
+			DLOG("fd=%d SO_RCVBUF=%d\n", fd, v);
 			sz = sizeof(int);
 		if (!getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &v, &sz))
-			DLOG("fd=%d SO_SNDBUF=%d\n", fd, v)
+			DLOG("fd=%d SO_SNDBUF=%d\n", fd, v);
 	}
 }
 bool set_socket_buffers(int fd, int rcvbuf, int sndbuf)
 {
-	DLOG("set_socket_buffers fd=%d rcvbuf=%d sndbuf=%d\n", fd, rcvbuf, sndbuf)
+	DLOG("set_socket_buffers fd=%d rcvbuf=%d sndbuf=%d\n", fd, rcvbuf, sndbuf);
 	if (rcvbuf && setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(int)) < 0)
 	{
-		perror("setsockopt (SO_RCVBUF)");
+		DLOG_PERROR("setsockopt (SO_RCVBUF)");
 		close(fd);
 		return false;
 	}
 	if (sndbuf && setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(int)) < 0)
 	{
-		perror("setsockopt (SO_SNDBUF)");
+		DLOG_PERROR("setsockopt (SO_SNDBUF)");
 		close(fd);
 		return false;
 	}
@@ -239,7 +239,7 @@ void phton64(uint8_t *p, uint64_t v)
 
 bool seq_within(uint32_t s, uint32_t s1, uint32_t s2)
 {
-	return s2>=s1 && s>=s1 && s<=s2 || s2<s1 && (s<=s2 || s>=s1);
+	return (s2>=s1 && s>=s1 && s<=s2) || (s2<s1 && (s<=s2 || s>=s1));
 }
 
 bool ipv6_addr_is_zero(const struct in6_addr *a)
@@ -313,7 +313,7 @@ time_t file_mod_time(const char *filename)
 
 bool pf_in_range(uint16_t port, const port_filter *pf)
 {
-	return port && ((!pf->from && !pf->to || port>=pf->from && port<=pf->to) ^ pf->neg);
+	return port && (((!pf->from && !pf->to) || (port>=pf->from && port<=pf->to)) ^ pf->neg);
 }
 bool pf_parse(const char *s, port_filter *pf)
 {
